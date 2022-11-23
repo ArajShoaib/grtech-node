@@ -28,6 +28,7 @@ app.use((req, res, next) => {
 
 
 app.use("/teams", routes.teams);
+app.use("/players", routes.players);
 
 
 

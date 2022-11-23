@@ -19,5 +19,8 @@ router.delete('/', (req, res) => {
 router.delete('/:Id', (req, res) => {
     controllers.Teams.deleteOneTeam(req, res)
 })
+router.get('/performance/:Id', (req, res) => {
+    controllers.Teams.getPerformance(req, res)
+})
 
 module.exports = router;

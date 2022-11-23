@@ -50,8 +50,28 @@ exports.modifyTeam = async (req, res) => {
 
 exports.getAllTeams = async (req, res) => {
     try {
-        let teams = await db.Teams.find({}, { _id: 0, team_id: '$_id', team_name: 1 });
-        return res.status(200).send({ success: true, message: teams });
+        // Pagination
+        let page = req.query.page != 0 ? req.query.page ? parseInt(req.query.page) : 1 : 1
+        let limit = req.query.limit != 0 ? req.query.limit ? parseInt(req.query.limit) : 5 : 5
+
+        let startIndex = (page - 1) * limit;
+        let endIndex = page * limit;
+        let result = {};
+        // 
+        if (endIndex < await db.Teams.countDocuments().exec()) {
+            result.next = {
+                page: page + 1,
+            }
+        }
+        if (startIndex > 0) {
+            result.previous = {
+                page: page - 1,
+            }
+        }
+        // Pagination
+        let teams = await db.Teams.find({}, { _id: 0, team_id: '$_id', team_name: 1 }).limit(limit).skip(startIndex).sort({ 'created_at': -1 });
+        result.data = teams
+        return res.status(200).send({ success: true, message: result });
     }
     catch (err) {
         console.log({ err });
@@ -97,6 +117,46 @@ exports.deleteOneTeam = async (req, res) => {
         else {
             return res.status(500).send({ success: false, message: 'Irregularities in requested data' });
         }
+    }
+    catch (err) {
+        console.log({ err });
+        return res.status(500).send({ success: false, message: err });
+    }
+}
+
+exports.getPerformance = async (req, res) => {
+    try {
+        let teamID = req.params.Id;
+        let dbQuery = [
+            {
+                '$match': {
+                    '_id': mongoose.Types.ObjectId(teamID)
+                }
+            }, {
+                '$lookup': {
+                    'from': 'players',
+                    'localField': '_id',
+                    'foreignField': 'team_id',
+                    'as': 'players'
+                }
+            }, {
+                '$project': {
+                    'team_name': 1,
+                    'total_goals': {
+                        '$sum': {
+                            '$sum': '$players.goals'
+                        }
+                    },
+                    'total_passes': {
+                        '$sum': {
+                            '$sum': '$players.key_passes'
+                        }
+                    }
+                }
+            }
+        ]
+        let teamStats = await db.Teams.aggregate(dbQuery);
+        return res.status(200).send({ success: true, message: teamStats });
     }
     catch (err) {
         console.log({ err });
